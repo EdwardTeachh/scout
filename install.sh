@@ -39,6 +39,11 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
+if [ ! -d /usr/local/bin ]; then
+  error "/usr/local/bin does not exist."
+  exit 1
+fi
+
 if ! python3 -c "import rich" >/dev/null 2>&1; then
   error "Python module 'rich' is missing."
   info "Install it manually, then run this installer again."
@@ -53,8 +58,8 @@ fi
 SCOUT_URL="https://raw.githubusercontent.com/EdwardTeachh/scout/main/scout.py"
 SOURCE_FILE="$(mktemp)"
 TARGET_FILE="/usr/local/bin/scout"
-CONFIG_DIR="$HOME/.config/scout"
-CONFIG_FILE="$CONFIG_DIR/config"
+CONFIG_HOME="$HOME"
+CONFIG_OWNER=""
 
 cleanup() {
   rm -f "$SOURCE_FILE"
@@ -67,16 +72,44 @@ if ! curl -fsSL "$SCOUT_URL" -o "$SOURCE_FILE"; then
   exit 1
 fi
 
-if ! cp "$SOURCE_FILE" "$TARGET_FILE" 2>/dev/null; then
-  error "Cannot write to /usr/local/bin/scout."
-  info "Try running this installer with sudo."
-  exit 1
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+  sudo_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+  if [ -n "$sudo_home" ]; then
+    CONFIG_HOME="$sudo_home"
+    CONFIG_OWNER="$SUDO_USER"
+  fi
 fi
 
-if ! chmod +x "$TARGET_FILE" 2>/dev/null; then
-  error "Cannot make /usr/local/bin/scout executable."
-  info "Try running this installer with sudo."
-  exit 1
+CONFIG_DIR="$CONFIG_HOME/.config/scout"
+CONFIG_FILE="$CONFIG_DIR/config"
+
+if [ -w /usr/local/bin ]; then
+  if ! cp "$SOURCE_FILE" "$TARGET_FILE"; then
+    error "Cannot write to /usr/local/bin/scout."
+    exit 1
+  fi
+
+  if ! chmod +x "$TARGET_FILE"; then
+    error "Cannot make /usr/local/bin/scout executable."
+    exit 1
+  fi
+else
+  if ! command -v sudo >/dev/null 2>&1; then
+    error "Cannot write to /usr/local/bin/scout and sudo is not available."
+    exit 1
+  fi
+
+  info "Installing Scout to /usr/local/bin/scout with sudo."
+
+  if ! sudo cp "$SOURCE_FILE" "$TARGET_FILE"; then
+    error "Cannot write to /usr/local/bin/scout with sudo."
+    exit 1
+  fi
+
+  if ! sudo chmod +x "$TARGET_FILE"; then
+    error "Cannot make /usr/local/bin/scout executable with sudo."
+    exit 1
+  fi
 fi
 
 if [ -f "$CONFIG_FILE" ]; then
@@ -115,6 +148,13 @@ else
   if ! printf 'LANG=%s\n' "$scout_lang" >"$CONFIG_FILE"; then
     error "Cannot write config file: $CONFIG_FILE"
     exit 1
+  fi
+
+  if [ -n "$CONFIG_OWNER" ]; then
+    if ! chown "$CONFIG_OWNER:" "$CONFIG_DIR" "$CONFIG_FILE"; then
+      error "Cannot set config ownership for $CONFIG_OWNER."
+      exit 1
+    fi
   fi
 
   info "Config created: $CONFIG_FILE"
