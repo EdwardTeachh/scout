@@ -98,6 +98,11 @@ if [ -w /usr/local/bin ]; then
     error "Cannot write to /usr/local/bin/scout."
     exit 1
   fi
+
+  if ! chmod 0755 "$TARGET_FILE"; then
+    error "Cannot set permissions on /usr/local/bin/scout."
+    exit 1
+  fi
 else
   if ! command -v sudo >/dev/null 2>&1; then
     error "Cannot write to /usr/local/bin/scout and sudo is not available."
@@ -108,6 +113,16 @@ else
 
   if ! sudo install -m 0755 "$SOURCE_FILE" "$TARGET_FILE"; then
     error "Cannot write to /usr/local/bin/scout with sudo."
+    exit 1
+  fi
+
+  if ! sudo chown root:root "$TARGET_FILE"; then
+    error "Cannot set owner on /usr/local/bin/scout with sudo."
+    exit 1
+  fi
+
+  if ! sudo chmod 0755 "$TARGET_FILE"; then
+    error "Cannot set permissions on /usr/local/bin/scout with sudo."
     exit 1
   fi
 fi
