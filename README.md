@@ -5,5 +5,5 @@ Scout is a strict, minimal Linux CLI utility for visualizing systemd service top
 ## Installation
 
 ```sh
-curl -fsSL <url> | bash
+curl -fsSL https://raw.githubusercontent.com/EdwardTeachh/scout/main/install.sh | bash
 ```

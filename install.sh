@@ -34,6 +34,11 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v curl >/dev/null 2>&1; then
+  error "curl is required to download scout.py."
+  exit 1
+fi
+
 if ! python3 -c "import rich" >/dev/null 2>&1; then
   error "Python module 'rich' is missing."
   info "Install it manually, then run this installer again."
@@ -45,14 +50,20 @@ if ! python3 -c "import rich" >/dev/null 2>&1; then
   exit 1
 fi
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-SOURCE_FILE="$SCRIPT_DIR/scout.py"
+SCOUT_URL="https://raw.githubusercontent.com/EdwardTeachh/scout/main/scout.py"
+SOURCE_FILE="$(mktemp)"
 TARGET_FILE="/usr/local/bin/scout"
 CONFIG_DIR="$HOME/.config/scout"
 CONFIG_FILE="$CONFIG_DIR/config"
 
-if [ ! -f "$SOURCE_FILE" ]; then
-  error "scout.py was not found next to install.sh."
+cleanup() {
+  rm -f "$SOURCE_FILE"
+}
+
+trap cleanup EXIT
+
+if ! curl -fsSL "$SCOUT_URL" -o "$SOURCE_FILE"; then
+  error "Cannot download scout.py from $SCOUT_URL."
   exit 1
 fi
 
