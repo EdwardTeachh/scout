@@ -39,6 +39,11 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v install >/dev/null 2>&1; then
+  error "install is required but was not found."
+  exit 1
+fi
+
 if [ ! -d /usr/local/bin ]; then
   error "/usr/local/bin does not exist."
   exit 1
@@ -72,6 +77,11 @@ if ! curl -fsSL "$SCOUT_URL" -o "$SOURCE_FILE"; then
   exit 1
 fi
 
+if [ "$(head -n 1 "$SOURCE_FILE")" != "#!/usr/bin/env python3" ]; then
+  error "Downloaded scout.py does not look like the Scout Python script."
+  exit 1
+fi
+
 if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
   sudo_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
   if [ -n "$sudo_home" ]; then
@@ -84,13 +94,8 @@ CONFIG_DIR="$CONFIG_HOME/.config/scout"
 CONFIG_FILE="$CONFIG_DIR/config"
 
 if [ -w /usr/local/bin ]; then
-  if ! cp "$SOURCE_FILE" "$TARGET_FILE"; then
+  if ! install -m 0755 "$SOURCE_FILE" "$TARGET_FILE"; then
     error "Cannot write to /usr/local/bin/scout."
-    exit 1
-  fi
-
-  if ! chmod +x "$TARGET_FILE"; then
-    error "Cannot make /usr/local/bin/scout executable."
     exit 1
   fi
 else
@@ -101,15 +106,15 @@ else
 
   info "Installing Scout to /usr/local/bin/scout with sudo."
 
-  if ! sudo cp "$SOURCE_FILE" "$TARGET_FILE"; then
+  if ! sudo install -m 0755 "$SOURCE_FILE" "$TARGET_FILE"; then
     error "Cannot write to /usr/local/bin/scout with sudo."
     exit 1
   fi
+fi
 
-  if ! sudo chmod +x "$TARGET_FILE"; then
-    error "Cannot make /usr/local/bin/scout executable with sudo."
-    exit 1
-  fi
+if [ "$(head -n 1 "$TARGET_FILE")" != "#!/usr/bin/env python3" ]; then
+  error "Installed /usr/local/bin/scout is not the Scout Python script."
+  exit 1
 fi
 
 if [ -f "$CONFIG_FILE" ]; then
