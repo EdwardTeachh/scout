@@ -23,8 +23,9 @@ VERSION = "1.1"
 
 TRANSLATIONS = {
     "en": {
-        "title": "Scout service topology",
+        "title": "Scout",
         "status": "Status",
+        "autostart": "Autostart",
         "active": "Active",
         "inactive": "Inactive",
         "not_found": "Not Found",
@@ -40,10 +41,19 @@ TRANSLATIONS = {
         "none": "None",
         "systemctl_missing": "systemctl is not available",
         "systemctl_timeout": "systemctl timed out",
+        "error": "error",
+        "timeout": "timeout",
+        "enabled": "enabled",
+        "disabled": "disabled",
+        "static": "static",
+        "masked": "masked",
+        "indirect": "indirect",
+        "generated": "generated",
     },
     "ru": {
-        "title": "Топология сервиса Scout",
+        "title": "Scout",
         "status": "Статус",
+        "autostart": "Автозагрузка",
         "active": "Активен",
         "inactive": "Неактивен",
         "not_found": "Не найден",
@@ -59,6 +69,14 @@ TRANSLATIONS = {
         "none": "Нет",
         "systemctl_missing": "systemctl недоступен",
         "systemctl_timeout": "systemctl не ответил вовремя",
+        "error": "ошибка",
+        "timeout": "таймаут",
+        "enabled": "включена",
+        "disabled": "выключена",
+        "static": "static",
+        "masked": "masked",
+        "indirect": "indirect",
+        "generated": "generated",
     },
 }
 
@@ -121,6 +139,20 @@ def parse_status(status_output: str, return_code: int) -> str:
     if state in {"inactive", "failed", "deactivating", "activating", "reloading"}:
         return "inactive"
     return "unknown"
+
+
+def parse_autostart(result: CommandResult) -> str:
+    if result.timed_out:
+        return "timeout"
+
+    value = result.stdout.strip().splitlines()
+    if result.returncode == 0 and value:
+        return value[0].strip()
+
+    error_value = result.stderr.strip().splitlines()
+    if error_value:
+        return "error"
+    return "error"
 
 
 def parse_unit_file(cat_output: str) -> str | None:
@@ -293,10 +325,38 @@ def path_label(state: PathState, text: dict[str, str]) -> str:
     return f"[red]{path}[/red] [red]({text['missing']})[/red]"
 
 
-def build_tree(service: str, status_key: str, cat_output: str, text: dict[str, str]) -> Tree:
+def autostart_label(value: str, text: dict[str, str]) -> str:
+    colors = {
+        "enabled": "green",
+        "disabled": "yellow",
+        "masked": "red",
+        "static": "dim",
+        "error": "red",
+        "timeout": "red",
+    }
+    translated = text.get(value, value)
+    if translated != value:
+        label = f"{translated} ({value})"
+    else:
+        label = translated
+    color = colors.get(value)
+    escaped_label = escape(label)
+    if color:
+        return f"[{color}]{escaped_label}[/{color}]"
+    return escaped_label
+
+
+def build_tree(
+    service: str,
+    status_key: str,
+    autostart_value: str,
+    cat_output: str,
+    text: dict[str, str],
+) -> Tree:
     escaped_service = escape(service)
     tree = Tree(f"[bold]{escaped_service}[/bold]")
     tree.add(f"{text['status']}: [bold]{text[status_key]}[/bold]")
+    tree.add(f"{text['autostart']}: {autostart_label(autostart_value, text)}")
 
     unit_file = parse_unit_file(cat_output)
     if unit_file:
@@ -351,8 +411,9 @@ def main() -> int:
 
     status_result = run_command(["systemctl", "status", args.service])
     cat_result = run_command(["systemctl", "cat", args.service])
+    is_enabled_result = run_command(["systemctl", "is-enabled", args.service])
 
-    if status_result is None or cat_result is None:
+    if status_result is None or cat_result is None or is_enabled_result is None:
         render_error(args.service, text["systemctl_missing"], text, no_color=no_color)
         return 1
 
@@ -362,10 +423,11 @@ def main() -> int:
 
     status_output = status_result.stdout + status_result.stderr
     status_key = parse_status(status_output, status_result.returncode)
+    autostart_value = parse_autostart(is_enabled_result)
     cat_output = cat_result.stdout if cat_result.returncode == 0 else ""
 
     console.print(Panel.fit(escape(args.service), title=text["title"]))
-    console.print(build_tree(args.service, status_key, cat_output, text))
+    console.print(build_tree(args.service, status_key, autostart_value, cat_output, text))
     return 0 if status_key != "not_found" else 1
 
 

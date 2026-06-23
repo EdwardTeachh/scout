@@ -63,6 +63,15 @@ class ScoutParserTests(unittest.TestCase):
         output = "# /etc/systemd/system/demo.service\n[Service]\nExecStart=/usr/bin/demo\n"
         self.assertEqual(scout.parse_unit_file(output), "/etc/systemd/system/demo.service")
 
+    def test_parse_autostart(self):
+        enabled = scout.CommandResult("enabled\n", "", 0)
+        failed = scout.CommandResult("", "Failed to get unit file state\n", 1)
+        timed_out = scout.CommandResult("", "", 1, timed_out=True)
+
+        self.assertEqual(scout.parse_autostart(enabled), "enabled")
+        self.assertEqual(scout.parse_autostart(failed), "error")
+        self.assertEqual(scout.parse_autostart(timed_out), "timeout")
+
     def test_unit_values_allow_indentation(self):
         output = "[Service]\n  ExecStart=/usr/bin/demo --config /etc/demo/demo.yaml\n"
         self.assertEqual(

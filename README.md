@@ -44,6 +44,7 @@ scout --no-color <service>
 $ scout ssh
 ssh
 ├── Status: Active
+├── Autostart: enabled
 ├── Unit file: /usr/lib/systemd/system/ssh.service (exists)
 ├── ExecStart
 │   └── /usr/sbin/sshd -D $SSHD_OPTS
@@ -63,9 +64,10 @@ Current version: `v1.1`.
 
 - is written in Python
 - uses `rich` to render tree-style output
-- reads only `systemctl status <service>` and `systemctl cat <service>`
+- reads only `systemctl status <service>`, `systemctl cat <service>`, and `systemctl is-enabled <service>`
 - stops if `systemctl` does not respond in time
 - shows service status
+- shows autostart status reported by systemd
 - shows unit file path
 - shows `ExecStart` command(s)
 - shows explicitly referenced configuration paths
@@ -175,6 +177,7 @@ scout --no-color <service>
 $ scout ssh
 ssh
 ├── Статус: Активен
+├── Автозагрузка: включена (enabled)
 ├── Файл unit: /usr/lib/systemd/system/ssh.service (существует)
 ├── ExecStart
 │   └── /usr/sbin/sshd -D $SSHD_OPTS
@@ -194,9 +197,10 @@ Scout — это read-only Linux CLI-утилита для просмотра т
 
 - написан на Python
 - использует `rich` для вывода в виде дерева
-- читает только `systemctl status <service>` и `systemctl cat <service>`
+- читает только `systemctl status <service>`, `systemctl cat <service>` и `systemctl is-enabled <service>`
 - останавливается, если `systemctl` не отвечает вовремя
 - показывает статус сервиса
+- показывает статус автозагрузки, который сообщает systemd
 - показывает путь к unit-файлу
 - показывает команду или команды `ExecStart`
 - показывает явно указанные пути конфигурации
