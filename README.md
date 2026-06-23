@@ -1,5 +1,8 @@
 # Scout
 
+- [English](#english)
+- [Русский](#русский)
+
 ## English
 
 ### 1. Installation
