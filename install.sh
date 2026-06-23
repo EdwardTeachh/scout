@@ -44,6 +44,11 @@ if ! command -v install >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v getent >/dev/null 2>&1; then
+  error "getent is required but was not found."
+  exit 1
+fi
+
 if [ ! -d /usr/local/bin ]; then
   error "/usr/local/bin does not exist."
   exit 1
@@ -127,8 +132,15 @@ else
   fi
 fi
 
+if [ ! -r "$TARGET_FILE" ]; then
+  error "Installed /usr/local/bin/scout is not readable by the current user."
+  ls -l "$TARGET_FILE" 2>/dev/null || true
+  exit 1
+fi
+
 if [ "$(head -n 1 "$TARGET_FILE")" != "#!/usr/bin/env python3" ]; then
   error "Installed /usr/local/bin/scout is not the Scout Python script."
+  ls -l "$TARGET_FILE" 2>/dev/null || true
   exit 1
 fi
 
@@ -181,3 +193,4 @@ else
 fi
 
 info "Scout installed: $TARGET_FILE"
+ls -l "$TARGET_FILE"

@@ -17,6 +17,8 @@ from rich.tree import Tree
 CONFIG_PATH = os.path.expanduser("~/.config/scout/config")
 CONFIG_EXTENSIONS = (".conf", ".json", ".yaml", ".yml", ".db")
 LOG_EXTENSIONS = (".log",)
+SYSTEMCTL_TIMEOUT_SECONDS = 10
+VERSION = "1.1"
 
 
 TRANSLATIONS = {
@@ -37,6 +39,7 @@ TRANSLATIONS = {
         "inaccessible": "inaccessible",
         "none": "None",
         "systemctl_missing": "systemctl is not available",
+        "systemctl_timeout": "systemctl timed out",
     },
     "ru": {
         "title": "Топология сервиса Scout",
@@ -55,6 +58,7 @@ TRANSLATIONS = {
         "inaccessible": "нет доступа",
         "none": "Нет",
         "systemctl_missing": "systemctl недоступен",
+        "systemctl_timeout": "systemctl не ответил вовремя",
     },
 }
 
@@ -64,6 +68,14 @@ class PathState:
     path: str
     exists: bool
     inaccessible: bool
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    stdout: str
+    stderr: str
+    returncode: int
+    timed_out: bool = False
 
 
 def load_language() -> str:
@@ -77,18 +89,22 @@ def load_language() -> str:
     return "en"
 
 
-def run_command(command: list[str]) -> subprocess.CompletedProcess[str] | None:
+def run_command(command: list[str]) -> CommandResult | None:
     try:
-        return subprocess.run(
+        result = subprocess.run(
             command,
             check=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
+            timeout=SYSTEMCTL_TIMEOUT_SECONDS,
         )
+        return CommandResult(result.stdout, result.stderr, result.returncode)
     except FileNotFoundError:
         return None
+    except subprocess.TimeoutExpired as error:
+        return CommandResult(error.stdout or "", error.stderr or "", 1, timed_out=True)
 
 
 def parse_status(status_output: str, return_code: int) -> str:
@@ -148,8 +164,9 @@ def unit_values(cat_output: str, key: str) -> list[str]:
     prefix = f"{key}="
     values: list[str] = []
     for line in logical_unit_lines(cat_output):
-        if line.startswith(prefix):
-            value = line[len(prefix) :].strip()
+        stripped = line.lstrip()
+        if stripped.startswith(prefix):
+            value = stripped[len(prefix) :].strip()
             if value:
                 values.append(value)
     return values
@@ -306,13 +323,14 @@ def build_tree(service: str, status_key: str, cat_output: str, text: dict[str, s
         for state in existing_log_paths:
             logs_branch.add(path_label(state, text))
     else:
-        logs_branch.add(f"{text['journal']}: journalctl -u {escaped_service} -n 50 --no-pager")
+        journal_service = escape(shlex.quote(service))
+        logs_branch.add(f"{text['journal']}: journalctl -u {journal_service} -n 50 --no-pager")
 
     return tree
 
 
-def render_error(service: str, message: str, text: dict[str, str]) -> None:
-    console = Console()
+def render_error(service: str, message: str, text: dict[str, str], no_color: bool = False) -> None:
+    console = Console(no_color=no_color)
     console.print(Panel.fit(escape(service), title=text["title"]))
     tree = Tree(f"[bold]{escape(service)}[/bold]")
     tree.add(f"[red]{message}[/red]")
@@ -321,18 +339,25 @@ def render_error(service: str, message: str, text: dict[str, str]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="scout")
+    parser.add_argument("--version", action="version", version=f"Scout {VERSION}")
+    parser.add_argument("--no-color", action="store_true", help="disable colored output")
     parser.add_argument("service")
     args = parser.parse_args()
 
     language = load_language()
     text = TRANSLATIONS[language]
-    console = Console()
+    no_color = args.no_color or "NO_COLOR" in os.environ
+    console = Console(no_color=no_color)
 
     status_result = run_command(["systemctl", "status", args.service])
     cat_result = run_command(["systemctl", "cat", args.service])
 
     if status_result is None or cat_result is None:
-        render_error(args.service, text["systemctl_missing"], text)
+        render_error(args.service, text["systemctl_missing"], text, no_color=no_color)
+        return 1
+
+    if status_result.timed_out or cat_result.timed_out:
+        render_error(args.service, text["systemctl_timeout"], text, no_color=no_color)
         return 1
 
     status_output = status_result.stdout + status_result.stderr

@@ -27,12 +27,15 @@ The installer:
 - systemctl
 - Python 3
 - curl
+- getent
 - rich Python library
 
 ### 3. Usage
 
 ```sh
 scout <service>
+scout --version
+scout --no-color <service>
 ```
 
 ### 4. Example output
@@ -54,11 +57,14 @@ ssh
 
 Scout is a read-only Linux CLI utility for inspecting the topology of a systemd service.
 
+Current version: `v1.1`.
+
 ### 6. What Scout does
 
 - is written in Python
 - uses `rich` to render tree-style output
 - reads only `systemctl status <service>` and `systemctl cat <service>`
+- stops if `systemctl` does not respond in time
 - shows service status
 - shows unit file path
 - shows `ExecStart` command(s)
@@ -99,6 +105,33 @@ LANG=ru
 - safe to run on production systems
 - no hidden logic or heuristics
 
+### 10. Troubleshooting
+
+If `rich` is missing, install it manually and run the installer again:
+
+```sh
+python3 -m pip install rich
+```
+
+If `/usr/local/bin/scout` has wrong permissions, reinstall Scout and check the file:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/EdwardTeachh/scout/main/install.sh | bash
+ls -l /usr/local/bin/scout
+```
+
+If the shell still runs an old command, clear the shell command cache:
+
+```sh
+hash -r
+```
+
+Parser tests can be run from the repository:
+
+```sh
+python3 -m unittest
+```
+
 ---
 
 ## Русский
@@ -125,12 +158,15 @@ curl -fsSL https://raw.githubusercontent.com/EdwardTeachh/scout/main/install.sh 
 - systemctl
 - Python 3
 - curl
+- getent
 - Python-библиотека rich
 
 ### 3. Использование
 
 ```sh
 scout <service>
+scout --version
+scout --no-color <service>
 ```
 
 ### 4. Пример вывода
@@ -152,11 +188,14 @@ ssh
 
 Scout — это read-only Linux CLI-утилита для просмотра топологии systemd-сервиса.
 
+Текущая версия: `v1.1`.
+
 ### 6. Что делает Scout
 
 - написан на Python
 - использует `rich` для вывода в виде дерева
 - читает только `systemctl status <service>` и `systemctl cat <service>`
+- останавливается, если `systemctl` не отвечает вовремя
 - показывает статус сервиса
 - показывает путь к unit-файлу
 - показывает команду или команды `ExecStart`
@@ -196,3 +235,30 @@ LANG=ru
 - явные источники данных
 - безопасно запускать на production-системах
 - без скрытой логики и эвристик
+
+### 10. Решение проблем
+
+Если отсутствует `rich`, установите его вручную и запустите установщик снова:
+
+```sh
+python3 -m pip install rich
+```
+
+Если у `/usr/local/bin/scout` неверные права, переустановите Scout и проверьте файл:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/EdwardTeachh/scout/main/install.sh | bash
+ls -l /usr/local/bin/scout
+```
+
+Если shell всё ещё запускает старую команду, очистите кэш команд shell:
+
+```sh
+hash -r
+```
+
+Тесты парсеров можно запустить из репозитория:
+
+```sh
+python3 -m unittest
+```
